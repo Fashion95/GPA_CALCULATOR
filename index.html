@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GPA Calculator</title>
+  <link rel="icon" type="image/jpeg" href="./asserts/fav.jpeg">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --primary: #4f46e5;
+      --text: #1f2937;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    .dark-mode {
+      --bg: #111827;
+      --primary: #6366f1;
+      --text: #f3f4f6;
+      --card: #1f2937;
+      --border: #374151;
+    }
+
+    .container {
+      max-width: 950px;
+      margin: 40px auto;
+      background: var(--card);
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      border: 1px solid var(--border);
+      min-width: 600px;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 12px;
+      text-align: center;
+    }
+
+    button {
+      background: var(--primary);
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 5px;
+      font-weight: 600;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #374151;
+    }
+
+    input, select {
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      width: 100%;
+      background: var(--card);
+      color: var(--text);
+    }
+
+    input.credit-input {
+      width: 80px;
+    }
+
+    .actions {
+      text-align: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    #gpaResult {
+      text-align: center;
+      font-size: 1.5rem;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+
+    .dark-toggle {
+      float: right;
+      background: transparent;
+      color: var(--primary);
+      font-weight: bold;
+    }
+
+    #resultTable h2 {
+      text-align: center;
+      margin-top: 30px;
+      color: var(--primary);
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+      margin-top: 30px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+        margin: 20px;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .actions button {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        margin: 5px;
+        width: 100%;
+      }
+
+      table th, table td {
+        padding: 8px;
+        font-size: 0.9rem;
+      }
+
+      input, select {
+        font-size: 0.9rem;
+      }
+
+      input.credit-input {
+        width: 60px;
+      }
+
+      #gpaResult {
+        font-size: 1.2rem;
+      }
+
+      .dark-toggle {
+        float: none;
+        display: block;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+    }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+
+      #resultTable, #resultTable * {
+        visibility: visible;
+      }
+
+      #resultTable {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+      }
+
+      .dark-toggle, .actions, canvas, #gpaResult, .table-container, h1 {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button onclick="toggleDarkMode()" class="dark-toggle">🌙 Dark Mode</button>
+    <h1>🎓 GPA Calculator</h1>
+
+    <div class="table-container">
+      <table id="courseTable">
+        <tr>
+          <th>Course</th>
+          <th>Grade</th>
+          <th>Credit Hours</th>
+          <th>Action</th>
+        </tr>
+      </table>
+    </div>
+
+    <div class="actions">
+      <button onclick="addRow()">➕ Add Course</button>
+      <button onclick="calculateGPA()">📊 Calculate GPA</button>
+      <button onclick="printPage()">🖨️ Print</button>
+    </div>
+
+    <div id="gpaResult">Your GPA: --</div>
+    <canvas id="gpaChart" height="100"></canvas>
+    <div id="resultTable"></div>
+  </div>
+
+  <script>
+    const gradePointMap = {
+      "A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5,
+      "C": 2.0, "D+": 1.5, "D": 1.0, "E": 0.5
+    };
+
+    function addRow(course = '', grade = '', credit = 3) {
+      const gradeOptions = Object.keys(gradePointMap);
+      let table = document.getElementById("courseTable");
+      let gradeSelect = `<select>
+        <option value="">--Select--</option>
+        ${gradeOptions.map(g => `<option value="${g}" ${grade === g ? 'selected' : ''}>${g}</option>`).join('')}
+      </select>`;
+      let row = table.insertRow();
+      row.innerHTML = `
+        <td><input type="text" value="${course}" placeholder="Course Name"></td>
+        <td>${gradeSelect}</td>
+        <td><input class="credit-input" type="number" value="${credit}" min="1" max="6"></td>
+        <td><button onclick="removeRow(this)">❌ Remove</button></td>
+      `;
+      row.querySelector('input').focus();
+    }
+
+    function removeRow(btn) {
+      btn.closest("tr").remove();
+    }
+
+    function calculateGPA() {
+      let rows = document.getElementById("courseTable").rows;
+      let totalPoints = 0, totalCredits = 0;
+      let labels = [], data = [], tableRows = ``;
+
+      for (let i = 1; i < rows.length; i++) {
+        let course = rows[i].cells[0].children[0].value || `Course ${i}`;
+        let grade = rows[i].cells[1].children[0].value;
+        let credit = parseFloat(rows[i].cells[2].children[0].value);
+        if (!grade || isNaN(credit)) continue;
+
+        let point = gradePointMap[grade];
+        let gp = point * credit;
+
+        totalPoints += gp;
+        totalCredits += credit;
+
+        labels.push(course);
+        data.push(point);
+
+        tableRows += `
+          <tr>
+            <td>${course}</td>
+            <td>${credit}</td>
+            <td>${grade}</td>
+            <td>${credit}×${point} = ${gp.toFixed(2)}</td>
+          </tr>
+        `;
+      }
+
+      let gpa = totalPoints / totalCredits;
+      let gpaFixed = isNaN(gpa) ? "--" : gpa.toFixed(3);
+      let classification = getClassification(gpa);
+
+      document.getElementById("gpaResult").innerText = `Your GPA: ${gpaFixed} / 4.0 • ${classification}`;
+
+      let resultHTML = `
+        <h2>Result Summary</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Credit</th>
+              <th>Grade</th>
+              <th>Grade Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+            <tr><td><strong>Total</strong></td><td colspan="3">${totalCredits} Credits</td></tr>
+            <tr><td colspan="3"><strong>GPA</strong></td><td><strong>${gpaFixed}</strong></td></tr>
+            <tr><td colspan="3"><strong>Classification</strong></td><td><strong>${classification}</strong></td></tr>
+          </tbody>
+        </table>
+      `;
+      document.getElementById("resultTable").innerHTML = resultHTML;
+      renderChart(labels, data);
+    }
+
+    function getClassification(gpa) {
+      if (gpa >= 3.6) return "Hurray! You Had First Class 🎉";
+      if (gpa >= 3.0) return "Well Done! Second Class Upper";
+      if (gpa >= 2.0) return "Good Job! Second Class Lower";
+      if (gpa >= 1.5) return "Fair! Third Class";
+      if (gpa >= 1.0) return "Pass";
+      return "Fail";
+    }
+
+    function renderChart(labels, data) {
+      let ctx = document.getElementById("gpaChart").getContext("2d");
+      if (window.gpaChart) window.gpaChart.destroy();
+      window.gpaChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Grade Points',
+            data: data,
+            backgroundColor: '#6366f1'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, max: 4.5 }
+          }
+        }
+      });
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+    }
+
+    function printPage() {
+      calculateGPA();
+      setTimeout(() => window.print(), 200);
+    }
+
+    addRow(); // Initial row
+  </script>
+</body>
+</html>
